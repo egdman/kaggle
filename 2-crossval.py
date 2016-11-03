@@ -7,7 +7,7 @@ from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test
 from sklearn.metrics import matthews_corrcoef, roc_auc_score
 from argparse import ArgumentParser
 
-from tools import load_sparse, get_corr_mtx, mcc_eval, eval_mcc, load_ohe
+from tools import load_sparse, get_corr_mtx, mcc_eval, eval_mcc, load_ohe, write_csv
 
 from matplotlib import pyplot as plt
 from operator import itemgetter
@@ -120,14 +120,15 @@ cv = StratifiedKFold(n_splits=3, shuffle=True)
 xgb_params = {
 	'max_depth': 5,
 	'n_estimators' : 100,
-	'learning_rate': 0.2,
-	'base_score': 0.005
+	'learning_rate': 0.05,  # 0.15
+	'base_score': 0.005,
+	'colsample_bytree': 0.9
 }
 ############################################
 
+mcc_scores = []
 
-
-
+# for learning_rate in learning_rates:
 for i, (train, test) in enumerate(cv.split(X, y)):
 	print("\n{} fold:".format(i))
 
@@ -157,6 +158,19 @@ print("FINAL AUC = {:.3f}".format(final_auc))
 print("FINAL MCC = {:.3f}".format(final_mcc))
 print('------------------------------------------------------')
 
+# mcc_scores.append(final_mcc)
+
+
+# resfname = 'lrates-{}-{}.csv'.format(
+# 	np.around(min(learning_rates), 3),
+# 	np.around(max(learning_rates), 3))
+
+
+# with open(resfname, 'w') as result_file:
+# 	write_csv(result_file, [['learning_rate', 'mcc']])
+# 	write_csv(result_file, zip(learning_rates, mcc_scores))
+
+
 
 #### pick the best threshold out-of-fold ################################################
 thresholds = np.linspace(0.01, 0.99, 50)
@@ -174,3 +188,29 @@ print("best threshold: {}".format(best_threshold))
 plt_fname = "date-num-corr-{}_feats.png".format(feat_cutoff)
 plt.savefig(plt_fname)
 plt.clf()
+
+
+
+
+# #### COMMENT THIS OUT TO PREVENT TRAINING OF THE FINAL CLASSIFIER #######################
+# #### FINAL TRAINING #####################################################################
+# train, test = train_test_split(np.arange(X.shape[0]), test_size = 0.1)
+# print("Fitting on {} rows".format(len(train)))
+
+
+
+# final_clf = XGBClassifier(**xgb_params)
+# final_clf.fit(X, y)
+# # final_clf.fit(X[train], y[train],
+# # 	eval_metric=mcc_eval_invert,
+# # 	eval_set = [(X[test], y[test])],
+# # 	early_stopping_rounds=10
+# # )
+
+# result_fname = "{}_thr={}_MCC={}".format(feat_cutoff, best_threshold, best_mcc)
+# clf_fname = 'predictor_' + result_fname
+
+# print("writing predictor to: %s" % clf_fname)
+# with open(clf_fname, 'w') as resfile:
+# 	resfile.write(pickle.dumps(final_clf))
+# #########################################################################################
