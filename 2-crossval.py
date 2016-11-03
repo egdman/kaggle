@@ -1,26 +1,17 @@
 import pandas as pd
 import numpy as np
-import gc
 import pickle
 from xgboost import XGBClassifier, DMatrix
 from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
 from sklearn.metrics import matthews_corrcoef, roc_auc_score
 from argparse import ArgumentParser
 
-from tools import load_sparse, get_corr_mtx, mcc_eval, eval_mcc, load_ohe, write_csv
+from tools import get_corr_mtx, mcc_eval, eval_mcc, write_csv, grab_data
 
 from matplotlib import pyplot as plt
 from operator import itemgetter
 from math import floor
 import scipy.sparse as spar
-
-
-
-
-def get_important_indices(header, important_colnames):
-	present_colanmes = np.intersect1d(header, important_colnames)
-	col_indices = np.arange(header.shape[0])[np.in1d(header, present_colanmes)]
-	return col_indices
 
 
 
@@ -37,72 +28,22 @@ cat_path = '../input/train_cat_sparse'
 
 feat_path = 'important_feats_all.csv'
 
+# read feature names
 ifeats = pd.read_csv(feat_path, index_col=0, dtype=str).index.values
 
+# use only the most important features
 feat_cutoff = 80
 ifeats = ifeats[:feat_cutoff]
 
 
 
-######## DATE ###################################
-dhead, dmtx = load_sparse(date_path)
+X, y = grab_data(
+	num_path=num_path,
+	date_path=date_path,
+	cat_path=cat_path,
+	feat_names=ifeats
+)
 
-d_colids = get_important_indices(dhead, ifeats)
-print("{} date features".format(len(d_colids)))
-
-dmtx = dmtx[:, d_colids]
-print(dmtx.shape)
-gc.collect()
-
-
-
-
-######## NUMERIC ################################
-nhead, nmtx = load_sparse(num_path)
-
-corr_mtx = get_corr_mtx(nhead, nmtx)
-
-y = nmtx[:, -1]
-y = np.array(y.todense()).ravel()
-
-n_colids = get_important_indices(nhead, ifeats)
-print("{} numeric features".format(len(n_colids)))
-
-nmtx = nmtx[:, n_colids]
-print(nmtx.shape)
-gc.collect()
-
-
-
-
-######## CORR ###################################
-corr_mtx = spar.csc_matrix(corr_mtx)
-corr_head = np.array( list(str(i) for i in np.arange(corr_mtx.shape[1])) )
-
-corr_colids = get_important_indices(corr_head, ifeats)
-print("{} correlation features".format(len(corr_colids)))
-
-corr_mtx = corr_mtx[:, corr_colids]
-print(corr_mtx.shape)
-
-
-
-
-######## CAT ####################################
-_, cat_mtx = load_ohe(cat_path)
-cat_head = np.array( list('CAT' + str(i) for i in range(cat_mtx.shape[1])) )
-
-cat_colids = get_important_indices(cat_head, ifeats)
-print("{} categorical features".format(len(cat_colids)))
-
-cat_mtx = cat_mtx[:, cat_colids].tocsc()
-print(cat_mtx.shape)
-
-
-
-############# CONSTRUCT FEATURE MTX #############
-X = spar.hstack([dmtx, nmtx, corr_mtx, cat_mtx])
-#################################################
 
 
 print("X :  {}".format(X.shape))

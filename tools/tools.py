@@ -6,6 +6,7 @@ from collections import Counter
 from itertools import izip, chain
 import scipy.sparse as spar
 from operator import itemgetter
+import gc
 
 
 
@@ -385,5 +386,87 @@ def sample_mtx_rows(mtx, fraction):
 
 
 
+def get_important_indices(header, important_colnames):
+    present_colanmes = np.intersect1d(header, important_colnames)
+    col_indices = np.arange(header.shape[0])[np.in1d(header, present_colanmes)]
+    return col_indices
 
 
+
+
+def grab_data(**kwargs):
+
+    date_path = kwargs['date_path']
+    num_path = kwargs['num_path']
+    cat_path = kwargs['cat_path']
+    feat_names = kwargs['feat_names']
+
+
+    ######## DATE ###################################
+    dhead, dmtx = load_sparse(date_path)
+
+    d_colids = get_important_indices(dhead, feat_names)
+    print("{} date features".format(len(d_colids)))
+
+    dmtx = dmtx[:, d_colids]
+    print(dmtx.shape)
+    gc.collect()
+
+
+
+
+    ######## NUMERIC ################################
+    nhead, nmtx = load_sparse(num_path)
+
+    corr_mtx = get_corr_mtx(nhead, nmtx)
+
+
+    if 'train' in num_path:
+        y = nmtx[:, -1]
+        y = np.array(y.todense()).ravel()
+    else:
+        y = None
+
+
+    n_colids = get_important_indices(nhead, feat_names)
+    print("{} numeric features".format(len(n_colids)))
+
+    nmtx = nmtx[:, n_colids]
+    print(nmtx.shape)
+    gc.collect()
+
+
+
+
+    ######## CORR ###################################
+     # convert to sparse to hstack with other sparse matrices
+    corr_mtx = spar.csc_matrix(corr_mtx)
+    corr_head = np.array( list(str(i) for i in np.arange(corr_mtx.shape[1])) )
+
+    corr_colids = get_important_indices(corr_head, feat_names)
+    print("{} correlation features".format(len(corr_colids)))
+
+    corr_mtx = corr_mtx[:, corr_colids]
+    print(corr_mtx.shape)
+
+
+
+
+    ######## CAT ####################################
+    _, cat_mtx = load_ohe(cat_path)
+    cat_head = np.array( list('CAT' + str(i) for i in range(cat_mtx.shape[1])) )
+
+    cat_colids = get_important_indices(cat_head, feat_names)
+    print("{} categorical features".format(len(cat_colids)))
+
+    # this mtx is csr initially, so we convert it to csc to stack with others
+    cat_mtx = cat_mtx[:, cat_colids].tocsc()
+    print(cat_mtx.shape)
+
+
+
+    ############# CONSTRUCT FEATURE MTX #############
+    X = spar.hstack([dmtx, nmtx, corr_mtx, cat_mtx])
+    #################################################
+
+    return X, y

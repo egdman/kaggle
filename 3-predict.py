@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import gc
 import pickle
 from xgboost import XGBClassifier, DMatrix
 from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
@@ -63,49 +62,13 @@ ifeats = ifeats[:num_feat]
 
 
 
-######## NUMERIC ################################
-nhead, nmtx = load_sparse(num_path)
+X, _ = grab_data(
+	num_path=num_path,
+	date_path=date_path,
+	cat_path=cat_path,
+	feat_names=ifeats
+)
 
-corr_mtx = get_corr_mtx(nhead, nmtx)
-
-n_colids = get_important_indices(nhead, ifeats)
-print("{} numeric features".format(len(n_colids)))
-
-nmtx = nmtx[:, n_colids]
-print(nmtx.shape)
-gc.collect()
-
-
-
-
-######## CORR ###################################
-corr_mtx = spar.csc_matrix(corr_mtx)
-corr_head = np.array( list(str(i) for i in np.arange(corr_mtx.shape[1])) )
-
-corr_colids = get_important_indices(corr_head, ifeats)
-print("{} correlation features".format(len(corr_colids)))
-
-corr_mtx = corr_mtx[:, corr_colids]
-print(corr_mtx.shape)
-
-
-
-
-######## CAT ####################################
-_, cat_mtx = load_ohe(cat_path)
-cat_head = np.array( list('CAT' + str(i) for i in range(cat_mtx.shape[1])) )
-
-cat_colids = get_important_indices(cat_head, ifeats)
-print("{} categorical features".format(len(cat_colids)))
-
-cat_mtx = cat_mtx[:, cat_colids].tocsc()
-print(cat_mtx.shape)
-
-
-
-############# CONSTRUCT FEATURE MTX #############
-X = spar.hstack([dmtx, nmtx, corr_mtx, cat_mtx])
-#################################################
 
 print("X :  {}".format(X.shape))
 
